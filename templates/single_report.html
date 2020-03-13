@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-6">
+            <img src="{{ url_for('static', filename='' + id + '/' + line) }}">
+        </div>
+        <div class="col-6">
+            <ul class="list-group" style="margin-top: 4.4rem">
+                <li class="list-group-item">Дата теста: <b>{{ id }}</b></li>
+                <li class="list-group-item">Модель: <b>{{ model }}</b></li>
+                <li class="list-group-item">Глубина: <b>{{ depth }}</b></li>
+                <li class="list-group-item">Количество лиц в тесте: <b>{{ count }}</b></li>
+                <li class="list-group-item">Версия SDK: <b>{{ sdk }}</b></li>
+                <li class="list-group-item">ERR: {{ err }}</li>
+            </ul>
+        </div>
+    </div>
+
+    <hr />
+
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab"
+                       aria-controls="home" aria-selected="true">Свой к своему</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="profile-tab" data-toggle="tab" href="#profile" role="tab"
+                       aria-controls="profile" aria-selected="false">Чужой к чужому</a>
+                </li>
+            </ul>
+            <div class="tab-content" id="myTabContent">
+                <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Первое лицо</th>
+                            <th scope="col">Второе лицо</th>
+                            <th scope="col">Сходство</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for match in match_df.iterrows() %}
+                        <tr>
+                            <th scope="row">{{ loop.index }}</th>
+                            <td>{{ match[1]['one_person'] }}</td>
+                            <td>{{ match[1]['two_person'] }}</td>
+                            <td>{{ match[1]['percent'] }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Первое лицо</th>
+                            <th scope="col">Второе лицо</th>
+                            <th scope="col">Сходство</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for mismatch in mismatch_df.iterrows() %}
+                        <tr>
+                            <th scope="row">{{ loop.index }}</th>
+                            <td>{{ mismatch[1]['one_person'] }}</td>
+                            <td>{{ mismatch[1]['two_person'] }}</td>
+                            <td>{{ mismatch[1]['percent'] }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
