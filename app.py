@@ -52,4 +52,4 @@ def single_report(id):
     return render_template('single_report.html', **locals())
 
 if __name__ == '__main__':
-    app.run(host='192.168.65.156', port=8000)
+    app.run(host='0.0.0.0', port=8000)
