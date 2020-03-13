@@ -364,16 +364,18 @@ class Job():
             f.close()
 
 if __name__ == '__main__':
-    #new_job = Job(model='B', depth='25', count='5')
-
     jobs = yaml.load(open('jobs.yml', 'r'), Loader=yaml.SafeLoader)
     for job in jobs:
+        # Обрабатываем job с типо range
         if jobs[job]['type'] == 'range':
             # Получаем диапазон начала и конца глубины в job
             range_depth = jobs[job]['depth'].split('-')
 
             for i in range(int(range_depth[0]), int(range_depth[-1]), int(jobs[job]['step'])):
-                Job(model=jobs[job]['model'], depth=str(i), count=jobs[job]['count'])
+                Job(model=jobs[job]['model'], depth=str(i), count=jobs[job]['count'], sdk_path=jobs[job]['sdk_path'],
+                    lfw_path=jobs[job]['lfw_path'])
 
+        # Обрабатываем job с типом single
         elif jobs[job]['type'] == 'single':
-            Job(model=jobs[job]['model'], depth=jobs[job]['depth'], count=jobs[job]['count'])
+            Job(model=jobs[job]['model'], depth=jobs[job]['depth'], count=jobs[job]['count'],
+                sdk_path=jobs[job]['sdk_path'], lfw_path=jobs[job]['lfw_path'])

@@ -5,3 +5,5 @@ job1:
   count: '500'
   step: '49'
   sdk_version: '1.77.323'
+  lfw_path: 'E:\\lfw\\lfw'
+  sdk_path: 'E:\\Recognize'
