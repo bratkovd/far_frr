@@ -1,9 +1,45 @@
 job1:
-  type: 'range'
-  model: 'B'
-  depth: '1-100'
+  engine: 'frsdk'
+  src_matches: 'local'
   count: '500'
-  step: '49'
+  lfw_path: 'E:\lfw_mvd'
+  type: 'single'
+  model: 'B'
+  depth: '100'
   sdk_version: '1.77.323'
-  lfw_path: 'E:\\lfw\\lfw'
-  sdk_path: 'E:\\Recognize'
+  sdk_path: 'E:\Recognize'
+
+job2:
+  engine: 'frsdk'
+  src_matches: 'local'
+  count: '500'
+  lfw_path: 'E:\lfw_mvd'
+  type: 'single'
+  model: 'A'
+  depth: '100'
+  sdk_version: '1.77.323'
+  sdk_path: 'E:\Recognize'
+
+job3:
+  engine: 'face_recognition'
+  src_matches: 'local'
+  count: '500'
+  lfw_path: 'E:\lfw_mvd'
+
+job4:
+  engine: 'face_recognition'
+  src_matches: 'local'
+  count: '500'
+  lfw_path: 'E:\lfw\lfw'
+
+job5:
+  engine: 'face_recognition'
+  src_matches: 'local'
+  count: '500'
+  lfw_path: 'E:\lfw\lfw-funneled'
+
+job6:
+  engine: 'face_recognition'
+  src_matches: 'local'
+  count: '500'
+  lfw_path: 'E:\lfw\lfw-deepfunneled'

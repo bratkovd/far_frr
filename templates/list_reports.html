@@ -6,10 +6,10 @@
     <tr>
         <th scope="col">#</th>
         <th scope="col">Дата и время теста</th>
-        <th scope="col">Модель</th>
-        <th scope="col">Глубина</th>
-        <th scope="col">Размер базы</th>
-        <th scope="col">SDK</th>
+        <th scope="col">Биометрия</th>
+        <th scope="col">Параметры</th>
+        <th scope="col">База данных</th>
+        <th scope="col">Результат</th>
     </tr>
     </thead>
     <tbody>
@@ -17,10 +17,17 @@
     <tr>
         <th scope="row">{{ loop.index }}</th>
         <td><a href="{{ url_for('single_report', id=directory['date']) }}">{{ directory['date'] }}</a></td>
-        <td>{{ directory['model'] }}</td>
-        <td>{{ directory['depth'] }}</td>
-        <td>{{ directory['count'] }}</td>
-        <td>{{ directory['sdk'] }}</td>
+        <td>{% if directory['engine'] %} {{ directory['engine'] }} {% endif %}</td>
+        <td>{% if directory['model'] %}Модель: {{ directory['model'] }}, {% endif %}
+            {% if directory['depth'] %}Глубина: {{ directory['depth'] }},  {% endif %}
+            {% if directory['sdk'] %}Версия SDK: {{ directory['sdk'] }},  {% endif %}
+            {% if directory['count'] %}Размер базы данных: {{ directory['count'] | int * 2 }} {% endif %} </td>
+        <td>{% if directory['lfw_path'] %} {{ directory['lfw_path'] }} {% endif %}</td>
+        <td>{% if directory['result']['EER'] %}EER: {{ directory['result']['EER'] }},
+            {% endif %} {% if directory['result']['FAR'] %}FAR: {{ directory['result']['FAR'] }},
+            {% endif %}{% if directory['result']['FRR'] %}FRR: {{ directory['result']['FRR'] }},
+            {% endif %}{% if directory['result']['accuracy'] %}Accuracy: {{ directory['result']['accuracy'] }} {% endif %}</td>
+
     </tr>
     {% endfor %}
     </tbody>

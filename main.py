@@ -1,15 +1,18 @@
-import os, requests, subprocess, re, datetime, time, yaml
+import os, requests, subprocess, re, datetime, time, yaml, face_recognition
 import pandas as pd
 import matplotlib.pyplot as plt
 from multiprocessing.dummy import Pool
 
 class Job():
+    engine = None
+    src_matches = None
     model = None
     depth = None
     count = None
     data_set = None
     sdk_path = None
     sdk_version = None
+    params = None
     results_recognize = None
     date_start_job = None
 
@@ -20,18 +23,27 @@ class Job():
 
     lfw_path = None
 
-    def __init__(self, model='A', depth='1', count='10', lfw_path='E:\\lfw\\lfw', sdk_path='E:\\Recognize', sdk_version='1.77.323'):
-        self.model = model
-        self.depth = depth
-        self.count = count
-        self.lfw_path = lfw_path
-        self.sdk_path = sdk_path
-        self.sdk_version = sdk_version
+    def __init__(self, **kwargs):
+        # Получаем параметры которые пришли на инициализацию
+        self.engine = kwargs.get('engine', 'frsdk')
+        self.src_matches = kwargs.get('src_matches', 'http')
+        self.count = kwargs.get('count', '20')
+        self.lfw_path = kwargs.get('lfw_path', 'E:\lfw\lfw-funneled')
+
+        self.model = kwargs.get('model', 'B')
+        self.depth = kwargs.get('depth', '100')
+        self.sdk_path = kwargs.get('sdk_path', 'E:\\Recognize')
+        self.sdk_version = kwargs.get('sdk_version', '1.77.323')
+        self.params = kwargs
 
         # Создаем папку для отчетов
         self.date_start_job = self.create_report_dir()
 
-        self.data_set = self.get_pairs_dev_test()
+        # Получаем пары фоток для сравнения
+        if self.src_matches == 'local':
+            self.data_set = self.get_pairs_dev_test_local()
+        else:
+            self.data_set = self.get_pairs_dev_test()
 
         # Запускаем выполнение работы
         self.run_job()
@@ -64,17 +76,83 @@ class Job():
         match_list = []
         mismatch_list = []
 
+        # Из файла формируем пары фотографий для сравнения с абсолютными путями
         for l in rfile:
             if (counter > 1) and (counter <= 501):
                 n = l.split()
-                match_list.append([n[0] + '--' + n[1], n[0] + '--' + n[2]])
+                photo_1 = self.get_abspath_photo_in_person_name(n[0] + '--' + n[1])
+                photo_2 = self.get_abspath_photo_in_person_name(n[0] + '--' + n[2])
+
+                match_list.append([photo_1, photo_2])
             elif (counter > 501) and (counter <= 1001):
                 n = l.split()
-                mismatch_list.append([n[0] + '--' + n[1], n[2] + '--' + n[3]])
+                photo_1 = self.get_abspath_photo_in_person_name(n[0] + '--' + n[1])
+                photo_2 = self.get_abspath_photo_in_person_name(n[2] + '--' + n[3])
+
+                mismatch_list.append([photo_1, photo_2])
 
             counter += 1
 
         os.remove(os.path.join('report', self.date_start_job, 'pairsDevTest.txt'))
+        data_set = {'match_pairs': match_list[0:int(self.count)], 'mismatch_pairs': mismatch_list[0:int(self.count)]}
+
+        return data_set
+
+    def get_pairs_dev_test_local(self):
+        '''
+        Функция формирования набора данных для тестирования распознавания.
+        Данные берутся с сайта HDD подготовленные в специальном формате.
+        Структура такая:
+        dir
+        -match
+            -dir_1
+                -photo_1.jpg
+                -photo_2.jpg
+        -mismatch
+            -dir_1
+                -photo_1.jpg
+                -photo_2.jpg
+
+        Данные усекаются по переменной count
+        :return: словарь с ключами match_pairs и mismatch_pairs внутри которых словари с объектами сравнения
+        {'match_pairs': [['Abdullah_Gul--13', 'Abdullah_Gul--14'], ['Abdullah_Gul--13', 'Abdullah_Gul--16'] ...
+        '''
+        try:
+            dir_match = os.listdir(os.path.join(self.lfw_path, 'match'))
+            dir_mismatch = os.listdir(os.path.join(self.lfw_path, 'mismatch'))
+
+            log_text = f'Получены данные для теста с {self.lfw_path}'
+            self.logger(log_text)
+        except:
+            log_text = f'Не удалось получить данные для теста {self.lfw_path}'
+            self.logger(log_text)
+            exit(1)
+
+        match_list = []
+        mismatch_list = []
+
+        # Формируем список "Свой к своему" с абсолютными путями до фоток
+        for n in dir_match:
+            photos = os.listdir(os.path.join(self.lfw_path, 'match', n))
+            if len(photos) >= 2:
+                tmp = []
+                for photo in photos:
+                    photo_abs_path = os.path.abspath(os.path.join(self.lfw_path, 'match', n, photo))
+                    tmp.append(photo_abs_path)
+
+                match_list.append(tmp)
+
+         # Формируем список "Чужой к чужому" с абсолютными путями до фоток
+        for m in dir_mismatch:
+            photos = os.listdir(os.path.join(self.lfw_path, 'mismatch', m))
+            if len(photos) >= 2:
+                tmp = []
+                for photo in photos:
+                    photo_abs_path = os.path.abspath(os.path.join(self.lfw_path, 'mismatch', m, photo))
+                    tmp.append(photo_abs_path)
+
+                mismatch_list.append(tmp)
+
         data_set = {'match_pairs': match_list[0:int(self.count)], 'mismatch_pairs': mismatch_list[0:int(self.count)]}
 
         return data_set
@@ -101,7 +179,7 @@ class Job():
 
         return path
 
-    def comparison_pair_photo(self, photo_1, photo_2):
+    def comparison_pair_photo_frsdk(self, photo_1, photo_2):
         '''
         Функция сравнения двух фотографий между собой используя утилиту face_recognize из состава FRSDK
         :param photo_1: абсолютный путь до фото 1
@@ -124,12 +202,12 @@ class Job():
 
             (out, err) = res.communicate()
 
-            tmp_file = open(os.path.join('report', self.date_start_job, 'report.txt'), 'w')
-            tmp_file.write(out.decode('UTF-8'))
+            tmp_file = open(os.path.join('report', self.date_start_job, 'report.txt'), 'w', encoding="ISO-8859-1")
+            tmp_file.write(out.decode('ISO-8859-1'))
             tmp_file.close()
 
             # Парсим процент из файла отчета
-            file = open(os.path.join('report', self.date_start_job, 'report.txt')).readlines()
+            file = open(os.path.join('report', self.date_start_job, 'report.txt'), encoding="ISO-8859-1").readlines()
             percent = None
 
             for line in file:
@@ -150,6 +228,36 @@ class Job():
 
         return percent
 
+    def comparison_pair_photo_face_recognition(self, photo_1, photo_2):
+        '''
+        Функция сравнения двух фотографий между собой используя утилиту face_recognition на основе OpenCV
+        :param photo_1: абсолютный путь до фото 1
+        :param photo_2: абсолютный путь до фото 2
+        :return: float процент на сколько лицо с фото 1 похоже на лицо с фото 2
+        '''
+        try:
+            person_1 = face_recognition.load_image_file(photo_1)
+            person_2 = face_recognition.load_image_file(photo_2)
+
+            person_1_encoding = face_recognition.face_encodings(person_1)[0]
+            person_2_encoding = face_recognition.face_encodings(person_2)[0]
+
+            percent = None
+
+            percent = face_recognition.face_distance([person_1_encoding], person_2_encoding)[0]
+
+            if percent == None:
+                percent = -1
+
+            log_text = photo_1 + ' - ' + photo_2 + f': {percent}'
+            self.logger(log_text)
+            print(log_text)
+        except Exception as e:
+            print(e)
+            percent = -1
+
+        return percent
+
     def run_job(self):
         '''
         Функция которая выполняет сравнение всех людей из переменной data_set
@@ -158,7 +266,7 @@ class Job():
         # Засекаем время начала работы сравнения лиц
         start_time = time.time()
 
-        log_text = f'Начинаем сравнивать {self.count} похожих людей с параметрами: Model {self.model}, Depth {self.depth}'
+        log_text = f'Начинаем сравнивать {self.count} похожих людей'
         self.logger(log_text)
         print(log_text)
 
@@ -166,10 +274,14 @@ class Job():
         for match in self.data_set['match_pairs']:
             # Из всего массива делаем столько сколько указано в переменной count
             if current_match_count < int(self.count):
-                photo_1 = self.get_abspath_photo_in_person_name(match[0])
-                photo_2 = self.get_abspath_photo_in_person_name(match[1])
+                photo_1 = match[0]
+                photo_2 = match[1]
 
-                percent = self.comparison_pair_photo(photo_1, photo_2)
+                # узнаем по какому движку надо запускать тест
+                if self.engine == 'frsdk':
+                    percent = self.comparison_pair_photo_frsdk(photo_1, photo_2)
+                elif self.engine == 'face_recognition':
+                    percent = self.comparison_pair_photo_face_recognition(photo_1, photo_2)
 
                 if percent != -1:
                     self.success_match_count += 1
@@ -180,7 +292,7 @@ class Job():
                 match.append(False)
 
         # Выполняем сравнение разных людей и в массив добавляем процент похожести
-        log_text = f'Начинаем сравнивать {self.count} разных людей с параметрами: Model {self.model}, Depth {self.depth}'
+        log_text = f'Начинаем сравнивать {self.count} разных людей'
         print(log_text)
         self.logger(log_text)
 
@@ -188,10 +300,14 @@ class Job():
         for mismatch in self.data_set['mismatch_pairs']:
             # Из всего массива делаем столько сколько указано в переменной MATCH_COUNT
             if current_mismatch_count < int(self.count):
-                photo_1 = self.get_abspath_photo_in_person_name(mismatch[0])
-                photo_2 = self.get_abspath_photo_in_person_name(mismatch[1])
+                photo_1 = mismatch[0]
+                photo_2 = mismatch[1]
 
-                percent = self.comparison_pair_photo(photo_1, photo_2)
+                # узнаем по какому движку надо запускать тест
+                if self.engine == 'frsdk':
+                    percent = self.comparison_pair_photo_frsdk(photo_1, photo_2)
+                elif self.engine == 'face_recognition':
+                    percent = self.comparison_pair_photo_face_recognition(photo_1, photo_2)
 
                 if percent != -1:
                     self.success_mismatch_count += 1
@@ -202,8 +318,8 @@ class Job():
                 mismatch.append(False)
 
         # Формируем DataFrame объект pandas для расчетов данных одинаковых людей
-        person_one = [self.get_abspath_photo_in_person_name(n[0]) for n in self.data_set['match_pairs']]
-        person_two = [self.get_abspath_photo_in_person_name(n[1]) for n in self.data_set['match_pairs']]
+        person_one = [n[0] for n in self.data_set['match_pairs']]
+        person_two = [n[1] for n in self.data_set['match_pairs']]
         percent = [n[-1] for n in self.data_set['match_pairs']]
 
         match_df = pd.DataFrame({
@@ -213,8 +329,8 @@ class Job():
         })
 
         # Формируем DataFrame объект pandas для расчетов данных разных людей
-        person_one = [self.get_abspath_photo_in_person_name(n[0]) for n in self.data_set['mismatch_pairs']]
-        person_two = [self.get_abspath_photo_in_person_name(n[1]) for n in self.data_set['mismatch_pairs']]
+        person_one = [n[0] for n in self.data_set['mismatch_pairs']]
+        person_two = [n[1] for n in self.data_set['mismatch_pairs']]
         percent = [n[-1] for n in self.data_set['mismatch_pairs']]
 
         mismatch_df = pd.DataFrame({
@@ -223,7 +339,7 @@ class Job():
             'percent': percent
         })
 
-        results_recognize = {'match': match_df, 'mismatch': mismatch_df}
+        results_recognize = {'match': match_df, 'mismatch': mismatch_df, 'params': self.params}
         self.results_recognize = results_recognize
 
         # Логируем количество найденных лиц
@@ -245,8 +361,10 @@ class Job():
         _match.csv - результаты сравнения лиц из левой колонки
         _mismatch.csv - результаты сравнения лиц из правой колонки
         _line.png - изображение графика сравнения FAR и FRR
+        _params.yml - параметры запуска job
+        _result.yml - полученный EER, FAR, FRR и accuracy
 
-        :param data: словарь с DataFrame объектами, где ключ match или mismatch в зависимости от того какие данные нужны
+        :param data: словарь с DataFrame объектами, где ключ match, mismatch или params в зависимости от того какие данные нужны
         '''
         try:
             # Подготавливаем шаблон имени файла для отчета где есть инфа о модели, глубине и количестве данных
@@ -320,11 +438,26 @@ class Job():
                            f'FRR: {str(far_frr_data["FRR"][index])}'
                 self.logger(log_text)
 
-            # Вычисляем ERR из объекта far и frr путем нахождения индекса с самым маленьким значением difference
+            # Вычисляем EER из объекта far и frr путем нахождения индекса с самым маленьким значением difference
             index_min_difference = far_frr_data['difference'].index(min(far_frr_data['difference']))
-            log_text = f'Threshold ERR: {far_frr_data["threshold"][index_min_difference]}, при котором FAR ' \
-                       f'{far_frr_data["FAR"][index_min_difference]} и FRR {far_frr_data["FRR"][index_min_difference]}'
+
+            EER = far_frr_data["threshold"][index_min_difference]
+            FAR = far_frr_data["FAR"][index_min_difference]
+            FRR = far_frr_data["FRR"][index_min_difference]
+            accuracy = (float(self.count) - ((float(self.count) - self.success_match_count) + (self.success_match_count * FRR)) + float(self.count) - ((float(self.count) - self.success_mismatch_count) + (self.success_mismatch_count * FAR)))/(float(self.count) * 2)
+
+            log_text = f'Threshold EER: {EER}, при котором FAR ' \
+                       f'{FAR} и FRR {FRR}'
             self.logger(log_text)
+
+            # Пишем параметры запуска в файл _params.yml
+            with open(os.path.join('report', self.date_start_job, 'params.yml'), 'w') as params_file:
+                yaml.dump(self.params, params_file, default_flow_style=False)
+
+            # Пишем результаты в файл result.yml
+            result = {'FRR': str(FRR), 'FAR': str(FAR), 'EER': str(EER), 'accuracy': str(accuracy)}
+            with open(os.path.join('report', self.date_start_job, 'result.yml'), 'w') as result_file:
+                yaml.dump(result, result_file, default_flow_style=False)
 
         except Exception as e:
             log_text = f'Не смогли создать файл отчета: {e}'
@@ -365,17 +498,30 @@ class Job():
 
 if __name__ == '__main__':
     jobs = yaml.load(open('jobs.yml', 'r'), Loader=yaml.SafeLoader)
+
     for job in jobs:
-        # Обрабатываем job с типо range
-        if jobs[job]['type'] == 'range':
-            # Получаем диапазон начала и конца глубины в job
-            range_depth = jobs[job]['depth'].split('-')
+        # Если тип движка frsdk
+        if jobs[job]['engine'] == 'frsdk':
+            # Обрабатываем job с типом range
+            if jobs[job]['type'] == 'range':
+                # Получаем диапазон начала и конца глубины в job
+                range_depth = jobs[job]['depth'].split('-')
 
-            for i in range(int(range_depth[0]), int(range_depth[-1]), int(jobs[job]['step'])):
-                Job(model=jobs[job]['model'], depth=str(i), count=jobs[job]['count'], sdk_path=jobs[job]['sdk_path'],
-                    lfw_path=jobs[job]['lfw_path'])
+                for i in range(int(range_depth[0]), int(range_depth[-1]), int(jobs[job]['step'])):
+                    Job(model=jobs[job]['model'], depth=str(i), count=jobs[job]['count'], sdk_path=jobs[job]['sdk_path'],
+                        lfw_path=jobs[job]['lfw_path'], engine=jobs[job]['engine'], src_matches=jobs[job]['src_matches'])
 
-        # Обрабатываем job с типом single
-        elif jobs[job]['type'] == 'single':
-            Job(model=jobs[job]['model'], depth=jobs[job]['depth'], count=jobs[job]['count'],
-                sdk_path=jobs[job]['sdk_path'], lfw_path=jobs[job]['lfw_path'])
+            # Обрабатываем job с типом single
+            elif jobs[job]['type'] == 'single':
+                Job(model=jobs[job]['model'], depth=jobs[job]['depth'], count=jobs[job]['count'],
+                    sdk_path=jobs[job]['sdk_path'], lfw_path=jobs[job]['lfw_path'], engine=jobs[job]['engine'],
+                    src_matches=jobs[job]['src_matches'])
+
+        # Если тип движка face_recognition
+        elif jobs[job]['engine'] == 'face_recognition':
+            Job(count=jobs[job]['count'], lfw_path=jobs[job]['lfw_path'], engine=jobs[job]['engine'],
+                src_matches=jobs[job]['src_matches'])
+
+        # Если левое значение
+        else:
+            print('Не известное системе значение указанное в поле engine')

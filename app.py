@@ -1,4 +1,4 @@
-import os
+import os, yaml
 import pandas as pd
 from flask import Flask
 from flask import render_template
@@ -12,15 +12,18 @@ def main():
     for dir in directories:
         sub_directories = os.listdir(os.path.join('report', dir))
         for file in sub_directories:
-            if file.endswith('_match.csv'):
-                param = file.split('_')
-                sdk = param[-2]
-                count = param[-4]
-                depth = param[-6]
-                model = param[-8]
-                data.append({'date': dir, 'model': model, 'depth': depth, 'count': count, 'sdk': sdk})
+            if file.endswith('params.yml'):
+                params = {}
+                try:
+                    params = yaml.load(open(os.path.join('report', dir, file), 'r'), Loader=yaml.SafeLoader)
+                    result = yaml.load(open(os.path.join('report', dir, 'result.yml'), 'r'), Loader=yaml.SafeLoader)
+                except:
+                    result = {}
+
+                params.update({'date': dir, 'result': result})
+
+                data.append(params)
     reverse_data = reversed(data)
-    #print(directories)
     return render_template('list_reports.html', directories=reverse_data)
 
 @app.route('/report/<id>')
@@ -33,21 +36,22 @@ def single_report(id):
             mismatch_file = file
         if file.endswith('_line.png'):
             line = file
-        if file.endswith('log.txt'):
-            log = file
-
-    param = line.split('_')
-    sdk = param[-2]
-    count = param[-4]
-    depth = param[-6]
-    model = param[-8]
+        if file.endswith('params.yml'):
+            params = file
+        if file.endswith('result.yml'):
+            result = file
 
     match_df = pd.read_csv(os.path.join('report', id, match_file))
     mismatch_df = pd.read_csv(os.path.join('report', id, mismatch_file))
 
-    # Парсим лог файл
-    log_file = open(os.path.join('report', id, log), encoding='UTF-8').readlines()
-    err = log_file[-2].split(':')[-1]
+    params_dict = {}
+    try:
+        params_dict = yaml.load(open(os.path.join('report', id, params), 'r'), Loader=yaml.SafeLoader)
+        result_dict = yaml.load(open(os.path.join('report', id, result), 'r'), Loader=yaml.SafeLoader)
+    except:
+        result_dict = {}
+
+    params_dict.update({'date': id, 'result': result_dict})
 
     return render_template('single_report.html', **locals())
 

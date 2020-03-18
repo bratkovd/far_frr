@@ -8,12 +8,18 @@
         </div>
         <div class="col-6">
             <ul class="list-group" style="margin-top: 4.4rem">
-                <li class="list-group-item">Дата теста: <b>{{ id }}</b></li>
-                <li class="list-group-item">Модель: <b>{{ model }}</b></li>
-                <li class="list-group-item">Глубина: <b>{{ depth }}</b></li>
-                <li class="list-group-item">Количество лиц в тесте: <b>{{ count }}</b></li>
-                <li class="list-group-item">Версия SDK: <b>{{ sdk }}</b></li>
-                <li class="list-group-item">ERR: {{ err }}</li>
+                <li class="list-group-item">Дата теста: <b>{% if params_dict['date'] %} {{ params_dict['date'] }} {% else %} --- {% endif %}</b></li>
+                <li class="list-group-item">Биометрия: <b>{% if params_dict['engine'] %} {{ params_dict['engine'] }} {% else %} --- {% endif %}</b></li>
+                <li class="list-group-item">Количество лиц в тесте: <b>{% if params_dict['count'] %} {{ params_dict['count'] | int * 2 }} {% endif %}</b></li>
+                <li class="list-group-item">EER: <b>{% if params_dict['result']['EER'] %} {{ params_dict['result']['EER'] }} {% endif %}</b></li>
+                <li class="list-group-item">FAR: <b>{% if params_dict['result']['FAR'] %} {{ params_dict['result']['FAR'] }} {% endif %}</b></li>
+                <li class="list-group-item">FRR: <b>{% if params_dict['result']['FRR'] %} {{ params_dict['result']['FRR'] }} {% endif %}</b></li>
+                <li class="list-group-item">Точность: <b>{% if params_dict['result']['accuracy'] %} {{ params_dict['result']['accuracy'] }} {% endif %}</b></li>
+                <li class="list-group-item">Параметры:
+                    {% if params_dict['model'] %}Модель:  <b>{{ params_dict['model'] }}</b>, {% endif %}
+                    {% if params_dict['depth'] %}Глубина:  <b>{{ params_dict['depth'] }}</b>, {% endif %}
+                    {% if params_dict['sdk'] %}Версия:  <b>{{ params_dict['sdk'] }}</b>, {% endif %}
+                </li>
             </ul>
         </div>
     </div>
