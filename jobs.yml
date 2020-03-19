@@ -28,18 +28,18 @@ job3:
 
 job4:
   engine: 'face_recognition'
-  src_matches: 'local'
+  src_matches: 'http'
   count: '500'
   lfw_path: 'E:\lfw\lfw'
 
 job5:
   engine: 'face_recognition'
-  src_matches: 'local'
+  src_matches: 'http'
   count: '500'
   lfw_path: 'E:\lfw\lfw-funneled'
 
 job6:
   engine: 'face_recognition'
-  src_matches: 'local'
+  src_matches: 'http'
   count: '500'
   lfw_path: 'E:\lfw\lfw-deepfunneled'
