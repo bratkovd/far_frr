@@ -196,6 +196,7 @@ class Job():
                                     frsdk_path,
                                     '--model', self.model,
                                     '--depth', str(self.depth),
+                                    '--minw', '10',
                                     '--hide',
                                     photo_1, photo_2],
                                    stdout=subprocess.PIPE, shell=True)
